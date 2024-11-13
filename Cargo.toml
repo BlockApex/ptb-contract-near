@@ -8,6 +8,13 @@ near-sdk = "5.5.0"
 near-sdk-contract-tools = "3.0.2"  # Ensure this version matches your code requirements
 borsh = "1.5.2"
 near-sdk-contract-tools-macros = "3.0.2"
+near-contract-standards = "5.5.0"
+near-workspaces = "0.14.1"
+getrandom = { version = "0.2", features = ["js"] }
+tokenizers = { version = "0.14.0", default-features = false, features = ["unstable_wasm"] }
+actix-web = { version = "4.4.0", default-features = false }
+clang = "2.0.0"
+
 
 
 [lib]
