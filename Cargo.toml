@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 near-contract-standards = "5.5.0"
 near-sdk = "5.5.0"
+borsh = "1.5.3"
 near-sdk-contract-tools = "3.0.2"
 
 
