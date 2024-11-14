@@ -73,6 +73,20 @@ impl Contract {
 
         this
     }
+
+        // Mint function added here
+        pub fn mint(&mut self, account_id: AccountId, amount: U128) {
+            self.token.internal_deposit(&account_id, amount.into());
+    
+            near_contract_standards::fungible_token::events::FtMint {
+                owner_id: &account_id,
+                amount: amount,
+                memo: Some("tokens minted"),
+            }
+            .emit();
+        }
+    
+    
 }
 
 #[near]
