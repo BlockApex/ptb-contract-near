@@ -137,17 +137,72 @@ impl Contract {
     }
 
     // Mint function added here
-    pub fn mint(&mut self, owner_id: AccountId, amount: U128) {
-        self.token.internal_deposit(&owner_id, amount.into());
-    
+    pub fn mint(&mut self, owner_id: AccountId) {
+        // Step 1: Retrieve emissions_account, loot_raffle_pool_account, and global_tapping_pool
+        let mut emissions_account = self.emissions_account.get(&owner_id)
+            .expect("Emissions account not found");
+        let mut loot_raffle_pool_account = self.loot_raffle_pool.get(&1)
+            .expect("Loot raffle pool account not found");
+        let mut global_tapping_pool = self.global_tapping_pool.get(&2)
+            .expect("Global tapping pool not found");
+
+        // Step 2: Get the current Unix timestamp
+        let current_timestamp = env::block_timestamp();
+
+        // Step 3: Define SECONDS_IN_A_MONTH as 30 days in seconds (2,592,000)
+        // const SECONDS_IN_A_MONTH: u64 = 30 * 24 * 60 * 60;
+        const SECONDS_IN_A_MONTH: u64 = 60 * 1_000_000_000; // 1 minute in nanoseconds for testing
+
+
+        // Step 4: Verify that one month has passed since the last mint if current_month > 0
+        if emissions_account.current_month > 0 {
+            require!(
+                current_timestamp >= emissions_account.last_mint_timestamp + SECONDS_IN_A_MONTH,
+                "Month has not yet elapsed"
+            );
+        }
+
+        // Step 5: Apply decay factor to current_emissions if current_month > 0
+        if emissions_account.current_month > 0 {
+            emissions_account.current_emissions = (emissions_account.current_emissions as f64 * emissions_account.decay_factor) as u64;
+        }
+
+        // Step 6: Log the owner of the mint account
+        log!("Mint account owner: {}", owner_id);
+
+        // Step 8: Calculate mint_amount by multiplying current_emissions by 100,000 to adjust for decimals
+        let mint_amount = U128(emissions_account.current_emissions as u128 * 100_000);
+
+        // Step 9: Execute the mint operation
+        self.token.internal_deposit(&owner_id, mint_amount.0);
+
         near_contract_standards::fungible_token::events::FtMint {
-        owner_id: &owner_id,
-        amount: amount,
-        memo: Some("tokens minted"),
+            owner_id: &owner_id,
+            amount: mint_amount,
+            memo: Some("tokens minted after emissions decay and monthly reset"),
         }
         .emit();
-    }
-    
+
+        // Step 10: Reset global_tapping_pool.amount to 1,000,000,000,00000
+        global_tapping_pool.amount = 1_000_000_000_00000;
+        self.global_tapping_pool.insert(&2, &global_tapping_pool);
+
+        // Step 11: Apply decay factor to loot_raffle_pool_account.amount if current_month > 0
+        if emissions_account.current_month > 0 {
+            loot_raffle_pool_account.amount = (loot_raffle_pool_account.amount as f64 * emissions_account.decay_factor) as u128;
+        }
+
+        // Step 12: Add the decayed loot_raffle_pool_account.amount to total_amount
+        loot_raffle_pool_account.total_amount += loot_raffle_pool_account.amount;
+        self.loot_raffle_pool.insert(&1, &loot_raffle_pool_account);
+
+        // Step 13: Update last_mint_timestamp in emissions_account to the current timestamp
+        emissions_account.last_mint_timestamp = current_timestamp;
+
+        // Step 14: Increment current_month in emissions_account by 1
+        emissions_account.current_month += 1;
+        self.emissions_account.insert(&owner_id, &emissions_account);
+    }    
     
 }
 
@@ -239,3 +294,61 @@ impl FungibleTokenMetadataProvider for Contract {
     }
 }
 
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     #[test]
+//     fn test_new_default_meta() {
+//         println!("Contract metadata initialized correctly!");
+//     }
+// }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use near_sdk::test_utils::{accounts, VMContextBuilder};
+    use near_sdk::{testing_env, MockedBlockchain};
+
+    fn setup_context(is_view: bool) {
+        let mut builder = VMContextBuilder::new();
+        builder.current_account_id(accounts(0));
+        builder.is_view(is_view);
+        testing_env!(builder.build());
+    }
+
+    #[test]
+    fn test_new_default_meta() {
+        setup_context(false);
+
+        let owner_id = accounts(0);
+        let total_supply = U128(1_000_000_000_000); // 1 billion tokens with decimals
+        let contract = Contract::new_default_meta(owner_id.clone(), total_supply);
+
+        // Verify token metadata
+        let metadata = contract.metadata.get().unwrap();
+        assert_eq!(metadata.name, "PUSH THE BUTTON PTB");
+        assert_eq!(metadata.symbol, "PUSH");
+        assert_eq!(metadata.decimals, 5);
+
+        // Verify emissions account
+        let emissions_account = contract.emissions_account.get(&owner_id).unwrap();
+        assert_eq!(emissions_account.initial_emissions, 3_000_000_000);
+        assert_eq!(emissions_account.current_emissions, 3_000_000_000);
+
+        // Verify loot raffle pool
+        let raffle_pool = contract.loot_raffle_pool.get(&1).unwrap();
+        
+        assert_eq!(raffle_pool.pool_id, 1);
+        assert_eq!(raffle_pool.amount, 50_000_000_00000);
+
+        // Verify global tapping pool
+        let tapping_pool = contract.global_tapping_pool.get(&2).unwrap();
+        assert_eq!(tapping_pool.pool_id, 2);
+        assert_eq!(tapping_pool.amount, 1_000_000_000_00000);
+
+        // Verify token balance for owner
+        assert_eq!(contract.token.ft_balance_of(owner_id), total_supply);
+
+        println!("Test passed: `new_default_meta` initialized correctly");
+    }
+}
