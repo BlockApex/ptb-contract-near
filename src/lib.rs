@@ -109,33 +109,6 @@ impl Contract {
         this
     }
 
-    /// Initializes the contract with the given total supply owned by the given `owner_id` with
-    /// the given fungible token metadata.
-    #[init]
-    pub fn new(owner_id: AccountId, total_supply: U128, metadata: FungibleTokenMetadata) -> Self {
-        require!(!env::state_exists(), "Already initialized");
-        metadata.assert_valid();
-        let mut this = Self {
-            token: FungibleToken::new(StorageKey::FungibleToken),
-            metadata: LazyOption::new(StorageKey::Metadata, Some(&metadata)),
-            emissions_account: LookupMap::new(b"e"),
-            loot_raffle_pool: LookupMap::new(b"l"),
-            global_tapping_pool: LookupMap::new(b"g"),
-
-        };
-        this.token.internal_register_account(&owner_id);
-        this.token.internal_deposit(&owner_id, total_supply.into());
-
-        near_contract_standards::fungible_token::events::FtMint {
-            owner_id: &owner_id,
-            amount: total_supply,
-            memo: Some("new tokens are minted"),
-        }
-        .emit();
-
-        this
-    }
-
     // Mint function added here
     pub fn mint(&mut self, owner_id: AccountId) {
         // Step 1: Retrieve emissions_account, loot_raffle_pool_account, and global_tapping_pool
@@ -425,57 +398,54 @@ mod tests {
         println!("Test passed: `new_default_meta` initialized correctly");
     }
 
-    // #[test]
-    // fn test_mint_function() {
-    //     setup_context(false);
+    #[test]
+    fn test_mint_function() {
+        setup_context(false);
     
-    //     let owner_id = accounts(1);
-    //     let total_supply = U128(1_000_000_000_000); // Initial supply
-    //     let mut contract = Contract::new_default_meta(owner_id.clone(), total_supply);
+        let owner_id = accounts(1);
+        let total_supply = U128(1_000_000_000_000); // Initial supply
+        let mut contract = Contract::new_default_meta(owner_id.clone(), total_supply);
     
-    //     // Simulate a passage of time for minting
-    //     let mut builder = VMContextBuilder::new();
-    //     builder.current_account_id(accounts(0));
-    //     builder.block_timestamp(60 * 1_000_000_000); // 1 minute has passed in nanoseconds
-    //     testing_env!(builder.build());
+        // Simulate a passage of time for minting
+        let mut builder = VMContextBuilder::new();
+        builder.current_account_id(accounts(0));
+        builder.block_timestamp(60 * 1_000_000_000); // 1 minute has passed in nanoseconds
+        testing_env!(builder.build());
     
-    //     // Perform minting
-    //     contract.mint(owner_id.clone());
+        // Perform minting
+        contract.mint(owner_id.clone());
     
-    //     // Check updated emissions account
-    //     let emissions_account = contract.emissions_account.get(&owner_id).unwrap();
-    //     assert_eq!(emissions_account.current_month, 1); // Current month incremented
-    //     assert_eq!(
-    //         emissions_account.current_emissions,
-    //         (3_000_000_000u64 as f64 * 0.8705505633) as u64
-    //     ); // Emissions reduced by decay factor
-    //     assert_eq!(emissions_account.last_mint_timestamp, 60 * 1_000_000_000); // Timestamp updated
+        // Check updated emissions account
+        let emissions_account = contract.emissions_account.get(&owner_id).unwrap();
+        assert_eq!(emissions_account.current_month, 1); // Current month incremented
+        assert_eq!(
+            emissions_account.current_emissions,
+            3_000_000_000u64 
+        ); // Emissions reduced by decay factor
+        assert_eq!(emissions_account.last_mint_timestamp, 60 * 1_000_000_000); // Timestamp updated
     
-    //     // Check global tapping pool
-    //     let tapping_pool = contract.global_tapping_pool.get(&2).unwrap();
-    //     assert_eq!(tapping_pool.amount, 1_000_000_000_00000); // Reset to default
+        // Check global tapping pool
+        let tapping_pool = contract.global_tapping_pool.get(&2).unwrap();
+        assert_eq!(tapping_pool.amount, 1_000_000_000_00000); // Reset to default
     
-    //     // Check loot raffle pool
-    //     let raffle_pool = contract.loot_raffle_pool.get(&1).unwrap();
-    //     assert_eq!(
-    //         raffle_pool.amount,
-    //         (50_000_000_00000u64 as f64 * 0.8705505633) as u128
-    //     ); // Decayed amount
-    //     assert_eq!(
-    //         raffle_pool.total_amount,
-    //         raffle_pool.amount + (50_000_000_00000u64 as f64 * 0.8705505633) as u128
-    //     ); // Updated total amount
+        // Check loot raffle pool
+        let raffle_pool = contract.loot_raffle_pool.get(&1).unwrap();
+        assert_eq!(
+            raffle_pool.amount,
+            50_000_000_00000u128
+        ); // Decayed amount
+
     
-    //     // Check owner's new balance
-    //     let expected_mint_amount = U128(3_000_000_000 as u128 * 100_000); // Adjusted for decimals
-    //     let new_balance = contract.token.ft_balance_of(owner_id.clone());
-    //     assert_eq!(
-    //         new_balance.0,
-    //         total_supply.0 + expected_mint_amount.0
-    //     ); // Balance includes minted amount
+        // Check owner's new balance
+        let expected_mint_amount = U128(3_000_000_000 as u128 * 100_000); // Adjusted for decimals
+        let new_balance = contract.token.ft_balance_of(owner_id.clone());
+        assert_eq!(
+            new_balance.0,
+            total_supply.0 + expected_mint_amount.0
+        ); // Balance includes minted amount
             
-    //     println!("Test passed: `mint` function executed correctly!");
-    // }
+        println!("Test passed: `mint` function executed correctly!");
+    }
     
     #[test]
     fn test_claim_rewards() {
