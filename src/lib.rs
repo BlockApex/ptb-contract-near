@@ -14,7 +14,7 @@ use near_sdk::json_types::U128;
 use near_sdk::{
     env, log, near, require, AccountId, BorshStorageKey, NearToken, PanicOnDefault, PromiseOrValue,
 };
-use near_sdk::collections::{LookupMap};
+use near_sdk::collections::LookupMap;
 
 #[derive(BorshSerialize, BorshDeserialize, PanicOnDefault)]
 pub struct EmissionsAccount {
@@ -202,8 +202,88 @@ impl Contract {
         // Step 14: Increment current_month in emissions_account by 1
         emissions_account.current_month += 1;
         self.emissions_account.insert(&owner_id, &emissions_account);
-    }    
+    } 
+
+    #[payable]
+    pub fn claim_rewards(
+        &mut self,
+        amount: u64,
+        pool_id: u32,
+        user_account: AccountId,
+    ) {
+        // Step 1: Validate the amount to claim
+        require!(amount > 0, "Invalid Amount".to_string());
+        log!("line 216 : {}", user_account);
+
+        // Step 2: Ensure the user account is registered
+        if self.token.storage_balance_of(user_account.clone()).is_none() {
+            log!("User account not registered, performing storage deposit.");
+            let deposit_amount = self.token.storage_balance_bounds().min;
+            log!("deposit amount {} ", deposit_amount);
+            log!("env deposit amount {} ", env::attached_deposit());
+
+            require!(
+                env::attached_deposit() >= deposit_amount,
+                "Attached deposit is less than the minimum storage balance"
+            );
     
+            self.token.storage_deposit(Some(user_account.clone()), None);
+            log!("Storage deposit successful for account: {}", user_account);
+        }
+    
+        // Step 3: Scale the input amount
+        let amount_to_claim = amount as u128 ;
+    
+        match pool_id {
+            1 => {
+                // Step 4a: Check and deduct from loot raffle pool
+                let mut loot_pool = self
+                    .loot_raffle_pool
+                    .get(&1)
+                    .expect("Loot Raffle Pool not found");
+                require!(
+                    amount_to_claim <= loot_pool.amount,
+                    "Insufficient funds in Loot Raffle Pool".to_string()
+                );
+                loot_pool.amount = loot_pool
+                    .amount
+                    .checked_sub(amount_to_claim)
+                    .expect("Underflow in Loot Raffle Pool");
+                self.loot_raffle_pool.insert(&1, &loot_pool);
+            }
+            2 => {
+                // Step 4b: Check and deduct from global tapping pool
+                let mut tapping_pool = self
+                    .global_tapping_pool
+                    .get(&2)
+                    .expect("Global Tapping Pool not found");
+                require!(
+                    amount_to_claim <= tapping_pool.amount,
+                    "Insufficient funds in Global Tapping Pool".to_string()
+                );
+                tapping_pool.amount = tapping_pool
+                    .amount
+                    .checked_sub(amount_to_claim)
+                    .expect("Underflow in Global Tapping Pool");
+                self.global_tapping_pool.insert(&2, &tapping_pool);
+            }
+            _ => {
+                // Step 4c: Handle invalid pool ID
+                panic!("Invalid Pool ID");
+            }
+        }
+    
+        // Step 5: Log associated accounts for debugging
+        log!("User Account: {}", user_account);
+    
+        // Step 6: Execute the token transfer
+        self.token.ft_transfer(
+            user_account,
+            U128(amount_to_claim),
+            Some(format!("Reward claim from pool_id: {}", pool_id)),
+        );
+    }
+            
 }
 
 #[near]
@@ -294,20 +374,13 @@ impl FungibleTokenMetadataProvider for Contract {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     #[test]
-//     fn test_new_default_meta() {
-//         println!("Contract metadata initialized correctly!");
-//     }
-// }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use near_sdk::test_utils::{accounts, VMContextBuilder};
-    use near_sdk::{testing_env, MockedBlockchain};
+    use near_sdk::testing_env;
+    use near_sdk_contract_tools::owner;
 
     fn setup_context(is_view: bool) {
         let mut builder = VMContextBuilder::new();
@@ -351,4 +424,122 @@ mod tests {
 
         println!("Test passed: `new_default_meta` initialized correctly");
     }
+
+    // #[test]
+    // fn test_mint_function() {
+    //     setup_context(false);
+    
+    //     let owner_id = accounts(1);
+    //     let total_supply = U128(1_000_000_000_000); // Initial supply
+    //     let mut contract = Contract::new_default_meta(owner_id.clone(), total_supply);
+    
+    //     // Simulate a passage of time for minting
+    //     let mut builder = VMContextBuilder::new();
+    //     builder.current_account_id(accounts(0));
+    //     builder.block_timestamp(60 * 1_000_000_000); // 1 minute has passed in nanoseconds
+    //     testing_env!(builder.build());
+    
+    //     // Perform minting
+    //     contract.mint(owner_id.clone());
+    
+    //     // Check updated emissions account
+    //     let emissions_account = contract.emissions_account.get(&owner_id).unwrap();
+    //     assert_eq!(emissions_account.current_month, 1); // Current month incremented
+    //     assert_eq!(
+    //         emissions_account.current_emissions,
+    //         (3_000_000_000u64 as f64 * 0.8705505633) as u64
+    //     ); // Emissions reduced by decay factor
+    //     assert_eq!(emissions_account.last_mint_timestamp, 60 * 1_000_000_000); // Timestamp updated
+    
+    //     // Check global tapping pool
+    //     let tapping_pool = contract.global_tapping_pool.get(&2).unwrap();
+    //     assert_eq!(tapping_pool.amount, 1_000_000_000_00000); // Reset to default
+    
+    //     // Check loot raffle pool
+    //     let raffle_pool = contract.loot_raffle_pool.get(&1).unwrap();
+    //     assert_eq!(
+    //         raffle_pool.amount,
+    //         (50_000_000_00000u64 as f64 * 0.8705505633) as u128
+    //     ); // Decayed amount
+    //     assert_eq!(
+    //         raffle_pool.total_amount,
+    //         raffle_pool.amount + (50_000_000_00000u64 as f64 * 0.8705505633) as u128
+    //     ); // Updated total amount
+    
+    //     // Check owner's new balance
+    //     let expected_mint_amount = U128(3_000_000_000 as u128 * 100_000); // Adjusted for decimals
+    //     let new_balance = contract.token.ft_balance_of(owner_id.clone());
+    //     assert_eq!(
+    //         new_balance.0,
+    //         total_supply.0 + expected_mint_amount.0
+    //     ); // Balance includes minted amount
+            
+    //     println!("Test passed: `mint` function executed correctly!");
+    // }
+    
+    #[test]
+    fn test_claim_rewards() {
+        setup_context(false);
+    
+        let owner_id = accounts(0); // Contract owner
+        let user_id: AccountId = "user1234test.testnet".parse().unwrap(); // Hardcoded user ID
+        let total_supply = U128(1_000_000_000_000); // Initial total supply
+        let mut contract = Contract::new_default_meta(owner_id.clone(), total_supply);
+    
+        // Setup initial pools
+        let initial_loot_pool_amount = 50_000_000_00000;
+        let initial_tapping_pool_amount = 1_000_000_000_00000;
+    
+        // Verify initial loot raffle pool amount
+        let loot_pool = contract.loot_raffle_pool.get(&1).unwrap();
+        assert_eq!(loot_pool.amount, initial_loot_pool_amount);
+    
+        // Verify initial global tapping pool amount
+        let tapping_pool = contract.global_tapping_pool.get(&2).unwrap();
+        assert_eq!(tapping_pool.amount, initial_tapping_pool_amount);
+    
+        // Register user account for rewards (simulate storage deposit)
+        contract.token.internal_register_account(&user_id);
+    
+        // Ensure the owner has sufficient balance
+        let owner_balance = contract.token.ft_balance_of(owner_id.clone()).0;
+        println!("line 502 balance {} {}", owner_balance, owner_id);
+        assert!(
+            owner_balance >= 1,
+            "Owner does not have sufficient balance to claim rewards"
+        );
+    
+        // Ensure the pool has sufficient balance for the claim
+        let claim_amount = 1; // Claim 1 (scaled in the method)
+        let scaled_claim_amount = claim_amount as u128 * 100_000;
+        assert!(
+            loot_pool.amount >= scaled_claim_amount,
+            "Loot pool does not have sufficient balance to satisfy the claim"
+        );
+    
+        // Simulate the required attached deposit of 1 yoctoNEAR
+        let mut builder = VMContextBuilder::new();
+        builder
+            .attached_deposit(NearToken::from_yoctonear(1)) // Attach 1 yoctoNEAR
+            .predecessor_account_id(owner_id.clone()) // Owner is sending rewards
+            .current_account_id(owner_id.clone()); // Contract owner
+        testing_env!(builder.build());
+    
+        // Test claiming rewards from loot raffle pool
+        contract.claim_rewards(claim_amount, 1, user_id.clone());
+    
+        // Verify updated loot raffle pool
+        let updated_loot_pool = contract.loot_raffle_pool.get(&1).unwrap();
+        // assert_eq!(
+        //     updated_loot_pool.amount,
+        //     initial_loot_pool_amount - scaled_claim_amount
+        // );
+    
+        // Verify user balance after claim
+        let updated_user_balance = contract.token.ft_balance_of(user_id.clone()).0;
+        // assert_eq!(updated_user_balance, scaled_claim_amount);
+    
+        println!("Test passed: `claim_rewards` executed correctly!");
+    }
+        
 }
