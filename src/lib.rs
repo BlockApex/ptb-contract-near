@@ -526,18 +526,18 @@ mod tests {
         testing_env!(builder.build());
     
         // Test claiming rewards from loot raffle pool
-        contract.claim_rewards(claim_amount, 1, user_id.clone());
+        contract.claim_rewards(claim_amount * 100000, 1, user_id.clone());
     
         // Verify updated loot raffle pool
         let updated_loot_pool = contract.loot_raffle_pool.get(&1).unwrap();
-        // assert_eq!(
-        //     updated_loot_pool.amount,
-        //     initial_loot_pool_amount - scaled_claim_amount
-        // );
+        assert_eq!(
+            updated_loot_pool.amount,
+            initial_loot_pool_amount - scaled_claim_amount
+        );
     
         // Verify user balance after claim
         let updated_user_balance = contract.token.ft_balance_of(user_id.clone()).0;
-        // assert_eq!(updated_user_balance, scaled_claim_amount);
+        assert_eq!(updated_user_balance, scaled_claim_amount);
     
         println!("Test passed: `claim_rewards` executed correctly!");
     }
