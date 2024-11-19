@@ -63,8 +63,14 @@ enum StorageKey {
 impl Contract {
     /// Initializes the contract with the given total supply owned by the given `owner_id` with
     /// default metadata (for example purposes only).
+    const OWNER_ID: &str = "ptbptbtest1.testnet";
+
     #[init]
     pub fn new_default_meta(owner_id: AccountId, total_supply: U128) -> Self {
+        require!(
+            owner_id == Self::OWNER_ID,
+            "Caller is not the owner"
+        );
         require!(!env::state_exists(), "Already initialized");
         
         let mut this = Self {
@@ -111,6 +117,12 @@ impl Contract {
 
     // Mint function added here
     pub fn mint(&mut self, owner_id: AccountId) {
+        
+        require!(
+            owner_id == Self::OWNER_ID,
+            "Caller is not the owner"
+        );
+
         // Step 1: Retrieve emissions_account, loot_raffle_pool_account, and global_tapping_pool
         let mut emissions_account = self.emissions_account.get(&owner_id)
             .expect("Emissions account not found");
@@ -184,6 +196,15 @@ impl Contract {
         pool_id: u32,
         user_account: AccountId,
     ) {
+        let caller_id = env::predecessor_account_id();
+        log!("line 216 : {}", caller_id);
+        log!("line 216 : {}", Self::OWNER_ID);
+
+        require!(
+            caller_id == Self::OWNER_ID,
+            "Only the owner can call this function"
+        );
+
         // Step 1: Validate the amount to claim
         require!(amount > 0, "Invalid Amount".to_string());
         log!("line 216 : {}", user_account);
@@ -283,6 +304,7 @@ impl FungibleTokenCore for Contract {
 
     fn ft_balance_of(&self, account_id: AccountId) -> U128 {
         self.token.ft_balance_of(account_id)
+        
     }
 }
 
