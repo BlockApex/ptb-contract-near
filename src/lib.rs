@@ -63,7 +63,6 @@ enum StorageKey {
 #[near]
 impl Contract {
     /// Initializes the contract with the given total supply owned by the given `owner_id` with
-    /// default metadata (for example purposes only).
     const OWNER_ID: &str = "ptbptbtest1.testnet";
 
     #[init]
@@ -116,7 +115,7 @@ impl Contract {
         this
     }
 
-    // Mint function added here
+    // Mint Tokens monthly based on emissions and set pools amount accordingly 
     pub fn mint(&mut self, owner_id: AccountId) {
         
         require!(
@@ -136,8 +135,8 @@ impl Contract {
         let current_timestamp = env::block_timestamp();
 
         // Step 3: Define SECONDS_IN_A_MONTH as 30 days in seconds (2,592,000)
-        // const SECONDS_IN_A_MONTH: u64 = 30 * 24 * 60 * 60;
-        const SECONDS_IN_A_MONTH: u64 = 60 * 1_000_000_000; // 1 minute in nanoseconds for testing
+        const SECONDS_IN_A_MONTH: u64 = 30 * 24 * 60 * 60;
+        // const SECONDS_IN_A_MONTH: u64 = 60 * 1_000_000_000; // 1 minute in nanoseconds for testing
 
 
         // Step 4: Verify that one month has passed since the last mint if current_month > 0
@@ -154,7 +153,7 @@ impl Contract {
         }
 
         // Step 6: Log the owner of the mint account
-        log!("Mint account owner: {}", owner_id);
+        // log!("Mint account owner: {}", owner_id);
 
         // Step 8: Calculate mint_amount by multiplying current_emissions by 100,000 to adjust for decimals
         let mint_amount = U128(emissions_account.current_emissions as u128 * 100_000);
@@ -226,8 +225,6 @@ impl Contract {
         user_account: AccountId,
     ) {
         let caller_id = env::predecessor_account_id();
-        log!("line 216 : {}", caller_id);
-        log!("line 216 : {}", Self::OWNER_ID);
 
         require!(
             caller_id == Self::OWNER_ID,
@@ -236,14 +233,13 @@ impl Contract {
 
         // Step 1: Validate the amount to claim
         require!(amount > 0, "Invalid Amount".to_string());
-        log!("line 216 : {}", user_account);
 
         // Step 2: Ensure the user account is registered
         if self.token.storage_balance_of(user_account.clone()).is_none() {
-            log!("User account not registered, performing storage deposit.");
+            // log!("User account not registered, performing storage deposit.");
             let deposit_amount = self.token.storage_balance_bounds().min;
-            log!("deposit amount {} ", deposit_amount);
-            log!("env deposit amount {} ", env::attached_deposit());
+            // log!("deposit amount {} ", deposit_amount);
+            // log!("env deposit amount {} ", env::attached_deposit());
 
             require!(
                 env::attached_deposit() >= deposit_amount,
@@ -251,7 +247,7 @@ impl Contract {
             );
     
             self.token.storage_deposit(Some(user_account.clone()), None);
-            log!("Storage deposit successful for account: {}", user_account);
+            // log!("Storage deposit successful for account: {}", user_account);
         }
     
         // Step 3: Scale the input amount
@@ -297,7 +293,7 @@ impl Contract {
         }
     
         // Step 5: Log associated accounts for debugging
-        log!("User Account: {}", user_account);
+        // log!("User Account: {}", user_account);
     
         // Step 6: Execute the token transfer
         self.token.ft_transfer(
