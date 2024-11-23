@@ -120,7 +120,7 @@ impl Contract {
     pub fn mint(&mut self) {
         
         require!(
-            env::attached_deposit() == 1,
+            env::attached_deposit() == NearToken::from_yoctonear(1),
             "1 yoctoNEAR must be attached for this call"
         );
     
