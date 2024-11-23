@@ -115,20 +115,20 @@ impl Contract {
         this
     }
 
+    #[payable]
     // Mint Tokens monthly based on emissions and set pools amount accordingly 
     pub fn mint(&mut self) {
         
-        // require!(
-        //     owner_id == Self::OWNER_ID,
-        //     "Caller is not the owner"
-        // );
+        require!(
+            env::attached_deposit() == 1,
+            "1 yoctoNEAR must be attached for this call"
+        );
+    
         let caller_id: AccountId = env::predecessor_account_id();
         log!("caller Id  {}", caller_id);
         log!("owner Id  {}", self.owner_id);
 
         require!(caller_id == self.owner_id, "PTB caller is not the owner");
-
-
 
         // Step 1: Retrieve emissions_account, loot_raffle_pool_account, and global_tapping_pool
         let mut emissions_account = self.emissions_account.get(&self.owner_id.clone())
