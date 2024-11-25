@@ -261,7 +261,7 @@ impl Contract {
             );
 
             require!(
-                current_timestamp - last_mint_timestamp >= SECONDS_IN_A_INTERVAL,
+                current_timestamp - last_mint_timestamp >= SECONDS_IN_A_MONTH,
                 "The required interval has not yet passed"
             );
         }
