@@ -44,7 +44,7 @@ near contract call-function as-transaction ptbfinaltest4.testnet mint json-args 
 
 near contract call-function as-transaction ptbtest1234.testnet storage_deposit json-args '{"account_id": "user1234test.testnet"}' prepaid-gas '100.0 Tgas' attached-deposit '0.01 NEAR' sign-as ptbtest1234.testnet network-config testnet sign-with-keychain send
    
-near contract call-function as-transaction ptbtest1234.testnet claim_rewards json-args '{"amount": 10, "pool_id": 1, "user_account": "user1234test.testnet"}' prepaid-gas '100.0 Tgas' attached-deposit '1 yoctoNEAR' sign-as ptbtest1234.testnet network-config testnet sign-with-keychain send
+near contract call-function as-transaction ptbtestptb1.testnet claim_rewards json-args '{"amount": "10", "pool_id": 1, "user_account": "user1234test.testnet"}' prepaid-gas '100.0 Tgas' attached-deposit '1 yoctoNEAR' sign-as ptbtestptb1.testnet network-config testnet sign-with-keychain send
 
 near contract call-function as-transaction ptbfinaltest2.testnet initiate_ownership_transfer json-args '{"new_owner":"ptbfinaltest3.testnet"}' prepaid-gas '100.0 Tgas' attached-deposit '1 yoctoNEAR' sign-as ptbfinaltest2.testnet network-config testnet sign-with-keychain send
 
