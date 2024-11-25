@@ -10,33 +10,32 @@ use near_contract_standards::storage_management::{
 use near_sdk::borsh::BorshSerialize;
 use near_sdk::borsh::BorshDeserialize;
 use near_sdk::collections::LazyOption;
-use near_sdk::json_types::U128;
+use near_sdk::json_types::{U128, U64};
 use near_sdk::{
     env, log, near, require, AccountId, BorshStorageKey, NearToken, PanicOnDefault, PromiseOrValue,
 };
 use near_sdk::collections::LookupMap;
-use near_sdk_contract_tools::owner;
 
 #[derive(BorshSerialize, BorshDeserialize, PanicOnDefault)]
 pub struct EmissionsAccount {
-    pub initial_emissions: u64,
-    pub decay_factor: f64,
-    pub current_month: u32,
-    pub current_emissions: u64,
-    pub last_mint_timestamp: u64,
+    pub initial_emissions: U64,  // Changed from u64 to U64
+    pub decay_factor: f64,       // Kept as f64 since it represents a float
+    pub current_month: u32,      // u32 is safe as it won't exceed JSON's 2^53 limit
+    pub current_emissions: U64,  // Changed from u64 to U64
+    pub last_mint_timestamp: U64, // Changed from u64 to U64
 }
 
 #[derive(BorshSerialize, BorshDeserialize, PanicOnDefault)]
 pub struct RafflePool {
-    pub pool_id: u32,
-    pub amount: u128,
-    pub total_amount: u128,
+    pub pool_id: u32,            // u32 is safe for IDs
+    pub amount: U128,            // Changed from u128 to U128
+    pub total_amount: U128,      // Changed from u128 to U128
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct TappingPool {
-    pub pool_id: u32,
-    pub amount: u128,
+    pub pool_id: u32,            // u32 is safe for IDs
+    pub amount: U128,            // Changed from u128 to U128
 }
 
 
@@ -49,7 +48,7 @@ pub struct Contract {
     loot_raffle_pool: LookupMap<u32, RafflePool>,
     global_tapping_pool: LookupMap<u32, TappingPool>,
     owner_id: AccountId,
-    proposed_owner: Option<AccountId>, // New field for proposed owner
+    proposed_owner: Option<AccountId>, //field for proposed owner
 }
 
 const DATA_IMAGE_SVG_NEAR_ICON: &str = "https://red-defensive-termite-556.mypinata.cloud/ipfs/QmUCUAABBsqkhSw3HoeMtecwVAeKBmxUgj2GLwmxuNojbV";
@@ -92,25 +91,34 @@ impl Contract {
         };
         log!("owner Id  {} ", this.owner_id);
         // Initialize Emissions Account
-        this.emissions_account.insert(&this.owner_id, &EmissionsAccount {
-            initial_emissions: 3_000_000_000,
-            decay_factor: 0.8705505633,
-            current_month: 0,
-            current_emissions: 3_000_000_000,
-            last_mint_timestamp: env::block_timestamp(),
-        });
+this.emissions_account.insert(
+    &this.owner_id,
+    &EmissionsAccount {
+        initial_emissions: U64(3_000_000_000), // Wrap integer in U64
+        decay_factor: 0.8705505633,           // f64 remains unchanged
+        current_month: 0,                    // u32 remains unchanged
+        current_emissions: U64(3_000_000_000), // Wrap integer in U64
+        last_mint_timestamp: U64(env::block_timestamp()), // Wrap timestamp in U64
+    },
+);
 
-        // Initialize Raffle and Tapping Pools
-        this.loot_raffle_pool.insert(&1, &RafflePool {
-            pool_id: 1,
-            amount: 50_000_000_00000,
-            total_amount: 0,
-        });
-        this.global_tapping_pool.insert(&2, &TappingPool {
-            pool_id: 2,
-            amount: 1_000_000_000_00000,
-        });
+// Initialize Raffle and Tapping Pools
+this.loot_raffle_pool.insert(
+    &1,
+    &RafflePool {
+        pool_id: 1,                           // u32 remains unchanged
+        amount: U128(50_000_000_00000),       // Wrap integer in U128
+        total_amount: U128(0),                // Wrap integer in U128
+    },
+);
 
+this.global_tapping_pool.insert(
+    &2,
+    &TappingPool {
+        pool_id: 2,                           // u32 remains unchanged
+        amount: U128(1_000_000_000_00000),    // Wrap integer in U128
+    },
+);
         this.token.internal_register_account(&this.owner_id);
         this.token.internal_deposit(&this.owner_id, total_supply.into());
 
@@ -153,11 +161,11 @@ impl Contract {
                 self.emissions_account.insert(
                     &self.owner_id,
                     &EmissionsAccount {
-                        initial_emissions: 3_000_000_000,
+                        initial_emissions: U64(3_000_000_000),          // Wrap integer in U64
                         decay_factor: 0.8705505633,
                         current_month: 0,
-                        current_emissions: 3_000_000_000,
-                        last_mint_timestamp: env::block_timestamp(),
+                        current_emissions: U64(3_000_000_000),         // Wrap integer in U64
+                        last_mint_timestamp: U64(env::block_timestamp()), // Wrap timestamp in U64
                     },
                 );
                 log!("Initialized emissions account for new owner: {}", self.owner_id);
@@ -169,8 +177,8 @@ impl Contract {
                     &1,
                     &RafflePool {
                         pool_id: 1,
-                        amount: 50_000_000_00000,
-                        total_amount: 0,
+                        amount: U128(50_000_000_00000),            // Wrap integer in U128
+                        total_amount: U128(0),
                     },
                 );
                 log!("Initialized loot raffle pool for new owner: {}", self.owner_id);
@@ -182,7 +190,7 @@ impl Contract {
                     &2,
                     &TappingPool {
                         pool_id: 2,
-                        amount: 1_000_000_000_00000,
+                        amount: U128(1_000_000_000_00000),         // Wrap integer in U128
                     },
                 );
                 log!("Initialized global tapping pool for new owner: {}", self.owner_id);
@@ -198,202 +206,224 @@ impl Contract {
             (self.owner_id.clone(), self.proposed_owner.clone()) // No semicolon here
         }
     
-
-    #[payable]
-    // Mint Tokens monthly based on emissions and set pools amount accordingly 
-    pub fn mint(&mut self) {
-        assert_one_yocto();
-        require!(
-            env::attached_deposit() == NearToken::from_yoctonear(1),
-            "1 yoctoNEAR must be attached for this call"
-        );
-    
-        let caller_id: AccountId = env::predecessor_account_id();
-        log!("caller Id  {}", caller_id);
-        log!("owner Id  {}", self.owner_id);
-
-        require!(caller_id == self.owner_id, "PTB caller is not the owner");
-
-        // Step 1: Retrieve emissions_account, loot_raffle_pool_account, and global_tapping_pool
-        let mut emissions_account = self.emissions_account.get(&self.owner_id.clone())
-            .expect("Emissions account not found");
-        let mut loot_raffle_pool_account = self.loot_raffle_pool.get(&1)
-            .expect("Loot raffle pool account not found");
-        let mut global_tapping_pool = self.global_tapping_pool.get(&2)
-            .expect("Global tapping pool not found");
-
-        // Step 2: Get the current Unix timestamp
-        let current_timestamp = env::block_timestamp();
-
-        // Step 3: Define SECONDS_IN_A_MONTH as 30 days in seconds (2,592,000)
-        const SECONDS_IN_A_MONTH: u64 = 30 * 24 * 60 * 60;
-        // const SECONDS_IN_A_MONTH: u64 = 60 * 1_000_000_000; // 1 minute in nanoseconds for testing
-
-
-        // Step 4: Verify that one month has passed since the last mint if current_month > 0
-        if emissions_account.current_month > 0 {
+        #[payable]
+        pub fn mint(&mut self) {
+            assert_one_yocto();
             require!(
-                current_timestamp >= emissions_account.last_mint_timestamp + SECONDS_IN_A_MONTH,
-                "Month has not yet elapsed"
+                env::attached_deposit() == NearToken::from_yoctonear(1),
+                "1 yoctoNEAR must be attached for this call"
+            );
+        
+            let caller_id: AccountId = env::predecessor_account_id();
+            log!("caller Id  {}", caller_id);
+            log!("owner Id  {}", self.owner_id);
+        
+            require!(caller_id == self.owner_id, "PTB caller is not the owner");
+        
+            // Step 1: Retrieve emissions_account, loot_raffle_pool_account, and global_tapping_pool
+            let mut emissions_account = self
+                .emissions_account
+                .get(&self.owner_id.clone())
+                .expect("Emissions account not found");
+            let mut loot_raffle_pool_account = self
+                .loot_raffle_pool
+                .get(&1)
+                .expect("Loot raffle pool account not found");
+            let mut global_tapping_pool = self
+                .global_tapping_pool
+                .get(&2)
+                .expect("Global tapping pool not found");
+        
+            // Step 2: Get the current Unix timestamp
+            let current_timestamp = env::block_timestamp();
+        
+            // Step 3: Define SECONDS_IN_A_MONTH as 30 days in seconds (2,592,000)
+            const SECONDS_IN_A_MONTH: u64 = 30 * 24 * 60 * 60;
+        
+            // Step 4: Verify that one month has passed since the last mint if current_month > 0
+            if emissions_account.current_month > 0 {
+                require!(
+                    current_timestamp >= emissions_account.last_mint_timestamp.0 + SECONDS_IN_A_MONTH,
+                    "Month has not yet elapsed"
+                );
+            }
+        
+            // Step 5: Apply decay factor to current_emissions if current_month > 0
+            if emissions_account.current_month > 0 {
+                emissions_account.current_emissions = U64(
+                    (emissions_account.current_emissions.0 as f64 * emissions_account.decay_factor) as u64,
+                );
+            }
+        
+            // Step 6: Log the owner of the mint account
+            // log!("Mint account owner: {}", owner_id);
+        
+            // Step 8: Calculate mint_amount by multiplying current_emissions by 100,000 to adjust for decimals
+            let mint_amount = U128(emissions_account.current_emissions.0 as u128 * 100_000);
+        
+            // Step 9: Execute the mint operation
+            self.token.internal_deposit(&self.owner_id, mint_amount.0);
+        
+            near_contract_standards::fungible_token::events::FtMint {
+                owner_id: &self.owner_id.clone(),
+                amount: mint_amount,
+                memo: Some("tokens minted after emissions decay and monthly reset"),
+            }
+            .emit();
+        
+            // Step 10: Reset global_tapping_pool.amount to 1,000,000,000,00000
+            global_tapping_pool.amount = U128(1_000_000_000_00000);
+            self.global_tapping_pool.insert(&2, &global_tapping_pool);
+        
+            // Step 11: Apply decay factor to loot_raffle_pool_account.amount if current_month > 0
+            if emissions_account.current_month > 0 {
+                loot_raffle_pool_account.amount = U128(
+                    (loot_raffle_pool_account.amount.0 as f64 * emissions_account.decay_factor) as u128,
+                );
+            }
+        
+            // Step 12: Add the decayed loot_raffle_pool_account.amount to total_amount
+            loot_raffle_pool_account.total_amount = U128(
+                loot_raffle_pool_account.total_amount.0 + loot_raffle_pool_account.amount.0,
+            );
+            self.loot_raffle_pool.insert(&1, &loot_raffle_pool_account);
+        
+            // Step 13: Update last_mint_timestamp in emissions_account to the current timestamp
+            emissions_account.last_mint_timestamp = U64(current_timestamp);
+        
+            // Step 14: Increment current_month in emissions_account by 1
+            emissions_account.current_month += 1;
+            self.emissions_account.insert(&self.owner_id, &emissions_account);
+        }
+        
+        pub fn burn(&mut self, amount: U128) {
+            // Step 1: Get the caller's account ID
+            let caller_id = env::predecessor_account_id();
+        
+            // Step 2: Ensure the burn amount is greater than zero
+            let burn_amount = amount.0; // Convert U128 to u128
+            require!(burn_amount > 0, "Burn amount must be greater than zero");
+        
+            // Step 3: Ensure the caller has enough balance to burn
+            let caller_balance = self.token.ft_balance_of(caller_id.clone()).0; // Retrieve current balance
+            require!(
+                caller_balance >= burn_amount,
+                format!(
+                    "Insufficient balance. Available: {}, Required: {}",
+                    caller_balance, burn_amount
+                )
+            );
+        
+            // Step 4: Withdraw the specified amount from the caller's account
+            self.token.internal_withdraw(&caller_id, burn_amount);
+        
+            // Step 5: Emit a burn event
+            near_contract_standards::fungible_token::events::FtBurn {
+                owner_id: &caller_id,
+                amount: amount,
+                memo: Some("Burning tokens from user's account"),
+            }
+            .emit();
+        
+            // Log the burn action for transparency
+            log!("{} tokens burned by {}", burn_amount, caller_id);
+        }
+        
+        #[payable]
+        pub fn claim_rewards(
+            &mut self,
+            amount: U128,       // Changed from u64 to U128 for JSON compatibility
+            pool_id: u32,
+            user_account: AccountId,
+        ) {
+            let caller_id: AccountId = env::predecessor_account_id();
+            log!("Caller ID: {}", caller_id);
+            log!("Owner ID: {}", self.owner_id);
+        
+            require!(caller_id == self.owner_id, "Caller is not the contract owner");
+        
+            // Step 1: Validate the amount to claim
+            let amount_to_claim = amount.0; // Extract raw u128 from U128
+            require!(amount_to_claim > 0, "Invalid amount to claim");
+        
+            // Step 2: Ensure the user account is registered
+            if self.token.storage_balance_of(user_account.clone()).is_none() {
+                let deposit_amount = self.token.storage_balance_bounds().min;
+                require!(
+                    env::attached_deposit() >= deposit_amount,
+                    "Attached deposit is less than the minimum storage balance required for account registration"
+                );
+                self.token.storage_deposit(Some(user_account.clone()), None);
+                log!("Storage deposit successful for account: {}", user_account);
+            }
+        
+            // Step 3: Check and deduct the amount from the respective pool
+            match pool_id {
+                1 => {
+                    // Loot Raffle Pool
+                    let mut loot_pool = self
+                        .loot_raffle_pool
+                        .get(&1)
+                        .expect("Loot Raffle Pool not found");
+                    require!(
+                        amount_to_claim <= loot_pool.amount.0,
+                        format!(
+                            "Insufficient funds in Loot Raffle Pool. Available: {}, Requested: {}",
+                            loot_pool.amount.0, amount_to_claim
+                        )
+                    );
+                    loot_pool.amount = U128(
+                        loot_pool
+                            .amount
+                            .0
+                            .checked_sub(amount_to_claim)
+                            .expect("Underflow in Loot Raffle Pool"),
+                    );
+                    self.loot_raffle_pool.insert(&1, &loot_pool);
+                }
+                2 => {
+                    // Global Tapping Pool
+                    let mut tapping_pool = self
+                        .global_tapping_pool
+                        .get(&2)
+                        .expect("Global Tapping Pool not found");
+                    require!(
+                        amount_to_claim <= tapping_pool.amount.0,
+                        format!(
+                            "Insufficient funds in Global Tapping Pool. Available: {}, Requested: {}",
+                            tapping_pool.amount.0, amount_to_claim
+                        )
+                    );
+                    tapping_pool.amount = U128(
+                        tapping_pool
+                            .amount
+                            .0
+                            .checked_sub(amount_to_claim)
+                            .expect("Underflow in Global Tapping Pool"),
+                    );
+                    self.global_tapping_pool.insert(&2, &tapping_pool);
+                }
+                _ => {
+                    // Invalid Pool ID
+                    panic!("Invalid Pool ID");
+                }
+            }
+        
+            // Step 4: Transfer the claimed amount to the user account
+            self.token.ft_transfer(
+                user_account,
+                U128(amount_to_claim),
+                Some(format!("Reward claim from pool_id: {}", pool_id)),
+            );
+        
+            log!(
+                "{} tokens claimed from Pool ID: {} by {}",
+                amount_to_claim,
+                pool_id,
+                caller_id
             );
         }
-
-        // Step 5: Apply decay factor to current_emissions if current_month > 0
-        if emissions_account.current_month > 0 {
-            emissions_account.current_emissions = (emissions_account.current_emissions as f64 * emissions_account.decay_factor) as u64;
-        }
-
-        // Step 6: Log the owner of the mint account
-        // log!("Mint account owner: {}", owner_id);
-
-        // Step 8: Calculate mint_amount by multiplying current_emissions by 100,000 to adjust for decimals
-        let mint_amount = U128(emissions_account.current_emissions as u128 * 100_000);
-
-        // Step 9: Execute the mint operation
-        self.token.internal_deposit(&self.owner_id, mint_amount.0);
-
-        near_contract_standards::fungible_token::events::FtMint {
-            owner_id: &self.owner_id.clone(),
-            amount: mint_amount,
-            memo: Some("tokens minted after emissions decay and monthly reset"),
-        }
-        .emit();
-
-        // Step 10: Reset global_tapping_pool.amount to 1,000,000,000,00000
-        global_tapping_pool.amount = 1_000_000_000_00000;
-        self.global_tapping_pool.insert(&2, &global_tapping_pool);
-
-        // Step 11: Apply decay factor to loot_raffle_pool_account.amount if current_month > 0
-        if emissions_account.current_month > 0 {
-            loot_raffle_pool_account.amount = (loot_raffle_pool_account.amount as f64 * emissions_account.decay_factor) as u128;
-        }
-
-        // Step 12: Add the decayed loot_raffle_pool_account.amount to total_amount
-        loot_raffle_pool_account.total_amount += loot_raffle_pool_account.amount;
-        self.loot_raffle_pool.insert(&1, &loot_raffle_pool_account);
-
-        // Step 13: Update last_mint_timestamp in emissions_account to the current timestamp
-        emissions_account.last_mint_timestamp = current_timestamp;
-
-        // Step 14: Increment current_month in emissions_account by 1
-        emissions_account.current_month += 1;
-        self.emissions_account.insert(&self.owner_id, &emissions_account);
-    } 
-
-    pub fn burn(&mut self, amount: U128) {
-        // Step 1: Get the caller's account ID
-        let caller_id = env::predecessor_account_id();
-    
-        // Step 2: Ensure the caller has enough balance to burn
-        let burn_amount = amount.0; // Convert U128 to u128
-        require!(
-            burn_amount > 0,
-            "Burn amount must be greater than zero"
-        );
-    
-        // Step 3: Withdraw the specified amount from the caller's account
-        self.token.internal_withdraw(&caller_id, burn_amount);
-    
-        // Step 4: Emit a burn event
-        near_contract_standards::fungible_token::events::FtBurn {
-            owner_id: &caller_id,
-            amount: amount,
-            memo: Some("Burning tokens from user's account"),
-        }
-        .emit();
-    
-        // Log the burn action for transparency
-        log!("{} tokens burned by {}", burn_amount, caller_id);
-    }
-    
-
-    
-    #[payable]
-    pub fn claim_rewards(
-        &mut self,
-        amount: u64,
-        pool_id: u32,
-        user_account: AccountId,
-    ) {
-
-        let caller_id: AccountId = env::predecessor_account_id();
-        log!("caller Id  {}", caller_id);
-        log!("owner Id  {}", self.owner_id);
-
-        require!(caller_id == self.owner_id, "PTB caller is not the owner");
-
-        // Step 1: Validate the amount to claim
-        require!(amount > 0, "Invalid Amount".to_string());
-
-        // Step 2: Ensure the user account is registered
-        if self.token.storage_balance_of(user_account.clone()).is_none() {
-            // log!("User account not registered, performing storage deposit.");
-            let deposit_amount = self.token.storage_balance_bounds().min;
-            // log!("deposit amount {} ", deposit_amount);
-            // log!("env deposit amount {} ", env::attached_deposit());
-
-            require!(
-                env::attached_deposit() >= deposit_amount,
-                "Attached deposit is less than the minimum storage balance"
-            );
-    
-            self.token.storage_deposit(Some(user_account.clone()), None);
-            // log!("Storage deposit successful for account: {}", user_account);
-        }
-    
-        // Step 3: Scale the input amount
-        let amount_to_claim = amount as u128 ;
-    
-        match pool_id {
-            1 => {
-                // Step 4a: Check and deduct from loot raffle pool
-                let mut loot_pool = self
-                    .loot_raffle_pool
-                    .get(&1)
-                    .expect("Loot Raffle Pool not found");
-                require!(
-                    amount_to_claim <= loot_pool.amount,
-                    "Insufficient funds in Loot Raffle Pool".to_string()
-                );
-                loot_pool.amount = loot_pool
-                    .amount
-                    .checked_sub(amount_to_claim)
-                    .expect("Underflow in Loot Raffle Pool");
-                self.loot_raffle_pool.insert(&1, &loot_pool);
-            }
-            2 => {
-                // Step 4b: Check and deduct from global tapping pool
-                let mut tapping_pool = self
-                    .global_tapping_pool
-                    .get(&2)
-                    .expect("Global Tapping Pool not found");
-                require!(
-                    amount_to_claim <= tapping_pool.amount,
-                    "Insufficient funds in Global Tapping Pool".to_string()
-                );
-                tapping_pool.amount = tapping_pool
-                    .amount
-                    .checked_sub(amount_to_claim)
-                    .expect("Underflow in Global Tapping Pool");
-                self.global_tapping_pool.insert(&2, &tapping_pool);
-            }
-            _ => {
-                // Step 4c: Handle invalid pool ID
-                panic!("Invalid Pool ID");
-            }
-        }
-    
-        // Step 5: Log associated accounts for debugging
-        // log!("User Account: {}", user_account);
-    
-        // Step 6: Execute the token transfer
-        self.token.ft_transfer(
-            user_account,
-            U128(amount_to_claim),
-            Some(format!("Reward claim from pool_id: {}", pool_id)),
-        );
-    }
-            
+        
 }
 
     /// Enforce the requirement of attaching exactly 1 yoctoⓃ for authentication
