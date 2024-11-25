@@ -120,6 +120,7 @@ impl Contract {
         /// Initiate Ownership Transfer
         #[payable]
         pub fn initiate_ownership_transfer(&mut self, new_owner: AccountId) {
+            assert_one_yocto();
             require!(
                 env::predecessor_account_id() == self.owner_id,
                 "Only the current owner can initiate an ownership transfer."
@@ -133,8 +134,10 @@ impl Contract {
             log!("Ownership transfer initiated to: {}", new_owner);
         }
 
+        #[payable]
         /// Accept Ownership Transfer
         pub fn accept_ownership(&mut self) {
+            assert_one_yocto();
             let proposed_owner = self.proposed_owner.clone().expect("No ownership transfer initiated.");
             require!(
                 env::predecessor_account_id() == proposed_owner,
@@ -199,7 +202,7 @@ impl Contract {
     #[payable]
     // Mint Tokens monthly based on emissions and set pools amount accordingly 
     pub fn mint(&mut self) {
-        
+        assert_one_yocto();
         require!(
             env::attached_deposit() == NearToken::from_yoctonear(1),
             "1 yoctoNEAR must be attached for this call"
@@ -392,6 +395,15 @@ impl Contract {
     }
             
 }
+
+    /// Enforce the requirement of attaching exactly 1 yoctoⓃ for authentication
+    fn assert_one_yocto() {
+        require!(
+            env::attached_deposit() == NearToken::from_yoctonear(1),
+            "Requires attached deposit of exactly 1 yoctoⓃ for authentication."
+        );
+    }
+
 
 #[near]
 impl FungibleTokenCore for Contract {
