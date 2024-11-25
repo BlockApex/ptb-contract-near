@@ -38,15 +38,16 @@ cargo clean
 cargo build --target wasm32-unknown-unknown --release
 
 
-near contract call-function as-transaction ptbpushtoken1.testnet new_default_meta json-args '{"owner_id": "ptbpushtoken1.testnet", "total_supply": "10000000000"}' prepaid-gas '100.0 Tgas' attached-deposit '0 NEAR' sign-as ptbpushtoken1.testnet network-config testnet sign-with-keychain send
+near contract deploy ptbfinaltest4.testnet use-file target/wasm32-unknown-unknown/release/near_contract_project.wasm with-init-call new_default_meta json-args '{"owner_id": "ptbfinaltest4.testnet", "total_supply": "10000000000"}' prepaid-gas '30.0 Tgas' attached-deposit '0 NEAR' network-config testnet sign-with-keychain send^C
 
-
-near contract call-function as-transaction ptbpushtoken1.testnet mint json-args '{"owner_id": "ptbpushtoken1.testnet"}' prepaid-gas '100.0 Tgas' attached-deposit '0 NEAR' sign-as ptbpushtoken1.testnet network-config testnet sign-with-keychain send
-
+near contract call-function as-transaction ptbfinaltest4.testnet mint json-args {} prepaid-gas '100.0 Tgas' attached-deposit '1 yoctoNEAR' sign-as ptbfinaltest4.testnet network-config testnet sign-with-keychain send
 
 near contract call-function as-transaction ptbtest1234.testnet storage_deposit json-args '{"account_id": "user1234test.testnet"}' prepaid-gas '100.0 Tgas' attached-deposit '0.01 NEAR' sign-as ptbtest1234.testnet network-config testnet sign-with-keychain send
    
-   
 near contract call-function as-transaction ptbtest1234.testnet claim_rewards json-args '{"amount": 10, "pool_id": 1, "user_account": "user1234test.testnet"}' prepaid-gas '100.0 Tgas' attached-deposit '1 yoctoNEAR' sign-as ptbtest1234.testnet network-config testnet sign-with-keychain send
 
+near contract call-function as-transaction ptbfinaltest2.testnet initiate_ownership_transfer json-args '{"new_owner":"ptbfinaltest3.testnet"}' prepaid-gas '100.0 Tgas' attached-deposit '1 yoctoNEAR' sign-as ptbfinaltest2.testnet network-config testnet sign-with-keychain send
 
+near contract call-function as-transaction ptbfinaltest2.testnet get_owners json-args {} prepaid-gas '100.0 Tgas' attached-deposit '0 NEAR' sign-as ptbfinaltest2.testnet network-config testnet sign-with-keychain send
+
+near contract call-function as-transaction ptbfinaltest2.testnet accept_ownership json-args {} prepaid-gas '100.0 Tgas' attached-deposit '0 NEAR' sign-as ptbfinaltest3.testnet network-config testnet sign-with-keychain send

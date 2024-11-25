@@ -49,6 +49,7 @@ pub struct Contract {
     loot_raffle_pool: LookupMap<u32, RafflePool>,
     global_tapping_pool: LookupMap<u32, TappingPool>,
     owner_id: AccountId,
+    proposed_owner: Option<AccountId>, // New field for proposed owner
 }
 
 const DATA_IMAGE_SVG_NEAR_ICON: &str = "https://red-defensive-termite-556.mypinata.cloud/ipfs/QmUCUAABBsqkhSw3HoeMtecwVAeKBmxUgj2GLwmxuNojbV";
@@ -86,6 +87,7 @@ impl Contract {
             loot_raffle_pool: LookupMap::new(b"l"),
             global_tapping_pool: LookupMap::new(b"g"),
             owner_id: caller_id.clone(),
+            proposed_owner: None,
 
         };
         log!("owner Id  {} ", this.owner_id);
@@ -114,6 +116,85 @@ impl Contract {
 
         this
     }
+
+        /// Initiate Ownership Transfer
+        #[payable]
+        pub fn initiate_ownership_transfer(&mut self, new_owner: AccountId) {
+            require!(
+                env::predecessor_account_id() == self.owner_id,
+                "Only the current owner can initiate an ownership transfer."
+            );
+            require!(
+                new_owner != self.owner_id,
+                "New owner cannot be the current owner."
+            );
+    
+            self.proposed_owner = Some(new_owner.clone());
+            log!("Ownership transfer initiated to: {}", new_owner);
+        }
+
+        /// Accept Ownership Transfer
+        pub fn accept_ownership(&mut self) {
+            let proposed_owner = self.proposed_owner.clone().expect("No ownership transfer initiated.");
+            require!(
+                env::predecessor_account_id() == proposed_owner,
+                "Only the proposed owner can accept the ownership transfer."
+            );
+        
+            // Transfer ownership
+            self.owner_id = proposed_owner.clone();
+            self.proposed_owner = None;
+        
+            // Ensure the new owner has an emissions account
+            if self.emissions_account.get(&self.owner_id).is_none() {
+                self.emissions_account.insert(
+                    &self.owner_id,
+                    &EmissionsAccount {
+                        initial_emissions: 3_000_000_000,
+                        decay_factor: 0.8705505633,
+                        current_month: 0,
+                        current_emissions: 3_000_000_000,
+                        last_mint_timestamp: env::block_timestamp(),
+                    },
+                );
+                log!("Initialized emissions account for new owner: {}", self.owner_id);
+            }
+        
+            // Ensure the new owner has a loot raffle pool account
+            if self.loot_raffle_pool.get(&1).is_none() {
+                self.loot_raffle_pool.insert(
+                    &1,
+                    &RafflePool {
+                        pool_id: 1,
+                        amount: 50_000_000_00000,
+                        total_amount: 0,
+                    },
+                );
+                log!("Initialized loot raffle pool for new owner: {}", self.owner_id);
+            }
+        
+            // Ensure the new owner has a global tapping pool account
+            if self.global_tapping_pool.get(&2).is_none() {
+                self.global_tapping_pool.insert(
+                    &2,
+                    &TappingPool {
+                        pool_id: 2,
+                        amount: 1_000_000_000_00000,
+                    },
+                );
+                log!("Initialized global tapping pool for new owner: {}", self.owner_id);
+            }
+        
+            log!("Ownership successfully transferred to: {}", self.owner_id);
+        }
+    
+        /// Check Current and Proposed Owners
+        pub fn get_owners(&self) -> (AccountId, Option<AccountId>) {
+            log!("Owner ID: {}", self.owner_id.clone());
+            log!("Proposed Owner ID: {:?}", self.proposed_owner);
+            (self.owner_id.clone(), self.proposed_owner.clone()) // No semicolon here
+        }
+    
 
     #[payable]
     // Mint Tokens monthly based on emissions and set pools amount accordingly 
